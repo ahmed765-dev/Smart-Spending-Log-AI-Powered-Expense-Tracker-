@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
@@ -274,6 +275,48 @@ let transactions: TransactionRecord[] = [
   }
 ];
 
+// Persistent File Storage (data.json)
+const DATA_FILE = path.join(process.cwd(), 'data.json');
+
+function saveDataToDisk() {
+  try {
+    const dataToSave = {
+      transactions,
+      categories,
+      mlModelWeights,
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save data to disk:', err);
+  }
+}
+
+function loadDataFromDisk() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.transactions)) {
+        transactions = parsed.transactions;
+      }
+      if (Array.isArray(parsed.categories)) {
+        categories = parsed.categories;
+      }
+      if (Array.isArray(parsed.mlModelWeights)) {
+        mlModelWeights = parsed.mlModelWeights;
+      }
+      console.log(`Loaded ${transactions.length} transaction(s) and ${categories.length} category/categories from local disk (${DATA_FILE}).`);
+    } else {
+      saveDataToDisk();
+    }
+  } catch (err) {
+    console.error('Failed to load data from disk:', err);
+  }
+}
+
+// Load persisted user data on startup
+loadDataFromDisk();
+
 // Helper: Predict category using Local ML + Gemini AI fallback
 async function predictExpenseCategory(description: string, amount: number) {
   const cleanDesc = description.toLowerCase().trim();
@@ -510,6 +553,7 @@ app.post('/api/transactions', async (req, res) => {
     };
 
     transactions.unshift(newTx);
+    saveDataToDisk();
     res.status(201).json(newTx);
   } catch (err) {
     res.status(500).json({ error: 'Failed to save transaction' });
@@ -553,6 +597,7 @@ app.put('/api/transactions/:id', (req, res) => {
     tx.merchant = storeName;
   }
 
+  saveDataToDisk();
   res.json(tx);
 });
 
@@ -560,6 +605,7 @@ app.put('/api/transactions/:id', (req, res) => {
 app.delete('/api/transactions', (req, res) => {
   const count = transactions.length;
   transactions = [];
+  saveDataToDisk();
   res.json({ success: true, count, message: 'All transactions cleared successfully.' });
 });
 
@@ -569,6 +615,7 @@ app.delete('/api/transactions/:id', (req, res) => {
   const initialCount = transactions.length;
   transactions = transactions.filter(t => t.id !== id);
   const deleted = transactions.length < initialCount;
+  saveDataToDisk();
   res.json({ success: deleted, id });
 });
 
@@ -675,6 +722,7 @@ app.put('/api/categories/:id', (req, res) => {
   if (typeof budgetLimit === 'number') {
     cat.budgetLimit = budgetLimit;
   }
+  saveDataToDisk();
   res.json(cat);
 });
 
@@ -914,6 +962,7 @@ app.delete('/api/transactions/month/:monthStr', (req, res) => {
   const initialCount = transactions.length;
   transactions = transactions.filter(t => !t.createdAt || !t.createdAt.startsWith(monthStr));
   const deletedCount = initialCount - transactions.length;
+  saveDataToDisk();
 
   res.json({
     deletedCount,
