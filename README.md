@@ -1,11 +1,7 @@
 # SSL — Smart Spending Log
 > **An Intelligent Hybrid AI/ML Expense Analytics Platform featuring Online Supervised Learning, Bayesian Term-Weight Retraining, and LLM-Powered Semantic Fallbacks.**
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-Express- green.svg?style=for-the-badge&logo=nodedotjs)](https://nodejs.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
 
 ---
 
