@@ -162,7 +162,3 @@ npm run dev
 | `/api/analytics/deep` | `GET` | `?selectedMonth=YYYY-MM&month1=YYYY-MM&month2=YYYY-MM` | Deep analytics, store/payer scopes & MoM comparison |
 
 ---
-
-## 📄 License
-
-This project is open-source under the [MIT License](LICENSE).
