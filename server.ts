@@ -560,10 +560,10 @@ app.post('/api/transactions', async (req, res) => {
   }
 });
 
-// 4. Update Transaction (Category Correction / ML Feedback)
+// 4. Update Transaction (Full Field Editing / Category Correction / ML Feedback)
 app.put('/api/transactions/:id', (req, res) => {
   const { id } = req.params;
-  const { category, description, amount, payerName, storeName } = req.body;
+  const { category, description, amount, payerName, storeName, paymentMethod, createdAt } = req.body;
   const index = transactions.findIndex(t => t.id === id);
 
   if (index === -1) {
@@ -577,7 +577,7 @@ app.put('/api/transactions/:id', (req, res) => {
     tx.isCategoryManuallyOverridden = true;
     tx.reasoning = `Category updated by user feedback. ML model weights updated for key terms in "${tx.description}".`;
 
-    const cleanWords = tx.description.toLowerCase().split(/[\s-]+/).filter(w => w.length > 2);
+    const cleanWords = (description || tx.description).toLowerCase().split(/[\s-]+/).filter(w => w.length > 2);
     const modelWeightObj = mlModelWeights.find(m => m.category === category);
     if (modelWeightObj) {
       cleanWords.forEach(word => {
@@ -589,13 +589,15 @@ app.put('/api/transactions/:id', (req, res) => {
     }
   }
 
-  if (description) tx.description = description;
-  if (typeof amount === 'number') tx.amount = amount;
-  if (payerName) tx.payerName = payerName;
-  if (storeName) {
+  if (description !== undefined) tx.description = description;
+  if (typeof amount === 'number' && !isNaN(amount)) tx.amount = amount;
+  if (payerName !== undefined) tx.payerName = payerName;
+  if (storeName !== undefined) {
     tx.storeName = storeName;
     tx.merchant = storeName;
   }
+  if (paymentMethod !== undefined) tx.paymentMethod = paymentMethod;
+  if (createdAt !== undefined) tx.createdAt = createdAt;
 
   saveDataToDisk();
   res.json(tx);
@@ -776,7 +778,7 @@ Provide a clear, engaging explanation covering:
 
 // 9. Deep Analytics & Month-over-Month Comparison Endpoint
 app.get('/api/analytics/deep', (req, res) => {
-  const { month1: reqM1, month2: reqM2 } = req.query;
+  const { month1: reqM1, month2: reqM2, selectedMonth: reqSelectedMonth, month: reqMonth } = req.query;
 
   // Find all unique months (YYYY-MM) in transactions
   const monthSet = new Set<string>();
@@ -793,8 +795,11 @@ app.get('/api/analytics/deep', (req, res) => {
   const m1 = (reqM1 as string) || availableMonths[0] || new Date().toISOString().substring(0, 7);
   const m2 = (reqM2 as string) || availableMonths[1] || availableMonths[0] || new Date().toISOString().substring(0, 7);
 
+  const scopeMonth = (reqSelectedMonth as string) || (reqMonth as string) || 'ALL';
+
   // Helper for formatting YYYY-MM to readable string e.g. "July 2026"
   const formatMonthLabel = (ymStr: string) => {
+    if (ymStr === 'ALL') return 'All Time Aggregate';
     try {
       const [y, m] = ymStr.split('-').map(Number);
       const date = new Date(y, m - 1, 1);
@@ -804,11 +809,17 @@ app.get('/api/analytics/deep', (req, res) => {
     }
   };
 
-  // 1. Payer Breakdown
+  // Determine scoped transactions for payer & store breakdown
+  let scopedTransactions = [...transactions];
+  if (scopeMonth && scopeMonth !== 'ALL') {
+    scopedTransactions = transactions.filter(t => t.createdAt && t.createdAt.startsWith(scopeMonth));
+  }
+
+  // 1. Payer Breakdown for scoped transactions
   const payerMap: Record<string, { totalSpent: number; count: number; catMap: Record<string, number>; storeMap: Record<string, number> }> = {};
   let grandTotal = 0;
 
-  transactions.forEach(t => {
+  scopedTransactions.forEach(t => {
     const p = t.payerName || 'Self';
     grandTotal += t.amount;
     if (!payerMap[p]) {
@@ -840,15 +851,15 @@ app.get('/api/analytics/deep', (req, res) => {
 
   const topSpendingPayer = payerBreakdown[0] || null;
 
-  // 2. Key Insights
+  // 2. Key Insights for scoped transactions
   let highestSinglePurchase: TransactionRecord | null = null;
-  if (transactions.length > 0) {
-    highestSinglePurchase = [...transactions].sort((a, b) => b.amount - a.amount)[0];
+  if (scopedTransactions.length > 0) {
+    highestSinglePurchase = [...scopedTransactions].sort((a, b) => b.amount - a.amount)[0];
   }
 
   // Top spending store overall
   const storeTotalsMap: Record<string, { total: number; count: number }> = {};
-  transactions.forEach(t => {
+  scopedTransactions.forEach(t => {
     const st = t.storeName || t.merchant || 'Unknown';
     if (!storeTotalsMap[st]) storeTotalsMap[st] = { total: 0, count: 0 };
     storeTotalsMap[st].total += t.amount;
@@ -927,6 +938,8 @@ app.get('/api/analytics/deep', (req, res) => {
   }).sort((a, b) => b.totalSpent - a.totalSpent);
 
   res.json({
+    scopeMonth,
+    scopeTransactions: scopedTransactions,
     payerBreakdown,
     topSpendingPayer,
     highestSinglePurchase,

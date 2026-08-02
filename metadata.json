@@ -1,6 +1,6 @@
 {
-  "name": "Smart Spending Log & ASP.NET Core Learning Studio",
-  "description": "AI-powered expense tracker with ML category predictions and an interactive ASP.NET Core & C# learning environment.",
+  "name": "SSL",
+  "description": "SSL (Smart Spending Log) - Intelligent expense tracker with ML category prediction and multi-period analytics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

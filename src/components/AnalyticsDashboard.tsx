@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { AnalyticsSummary, Category } from '../types';
-import { PieChart as PieIcon, TrendingUp, ShieldCheck, Settings, Store, Calendar, CreditCard, Users } from 'lucide-react';
+import { AnalyticsSummary, Category, Transaction } from '../types';
+import { PieChart as PieIcon, TrendingUp, ShieldCheck, Settings, Store, Calendar, CreditCard, Users, Filter, ShoppingBag } from 'lucide-react';
 
 interface AnalyticsDashboardProps {
   summary: AnalyticsSummary | null;
   categories: Category[];
+  transactions?: Transaction[];
   onOpenBudgetModal: () => void;
   selectedMonth: string;
   onMonthChange: (month: string) => void;
@@ -24,10 +25,15 @@ const formatMonthLabel = (ymStr: string) => {
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   summary,
+  categories,
+  transactions = [],
   onOpenBudgetModal,
   selectedMonth,
   onMonthChange,
 }) => {
+  const [selectedStoreCategory, setSelectedStoreCategory] = useState<string>('All');
+  const [selectedPayerCategory, setSelectedPayerCategory] = useState<string>('All');
+
   if (!summary) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
@@ -44,6 +50,79 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       value: c.total,
       color: c.color,
     }));
+
+  // Calculate Category-filtered Stores
+  const getFilteredStores = () => {
+    if (selectedStoreCategory === 'All') {
+      return summary.topVendors.map(v => ({
+        storeName: v.merchant,
+        total: v.total,
+        count: v.count,
+        items: [] as string[]
+      }));
+    }
+
+    const map: Record<string, { total: number; count: number; items: string[] }> = {};
+    transactions.forEach(t => {
+      const cat = t.predictedCategory || t.actualCategory;
+      if (cat === selectedStoreCategory) {
+        const store = t.storeName || t.merchant || 'General Market';
+        if (!map[store]) map[store] = { total: 0, count: 0, items: [] };
+        map[store].total += t.amount;
+        map[store].count += 1;
+        if (t.description && !map[store].items.includes(t.description)) {
+          map[store].items.push(t.description);
+        }
+      }
+    });
+
+    return Object.entries(map)
+      .map(([storeName, data]) => ({
+        storeName,
+        total: parseFloat(data.total.toFixed(2)),
+        count: data.count,
+        items: data.items
+      }))
+      .sort((a, b) => b.total - a.total);
+  };
+
+  // Calculate Category-filtered Payers
+  const getFilteredPayers = () => {
+    if (selectedPayerCategory === 'All') {
+      return (summary.topPayers || []).map(p => ({
+        payerName: p.payer,
+        total: p.total,
+        count: p.count,
+        items: [] as string[]
+      }));
+    }
+
+    const map: Record<string, { total: number; count: number; items: string[] }> = {};
+    transactions.forEach(t => {
+      const cat = t.predictedCategory || t.actualCategory;
+      if (cat === selectedPayerCategory) {
+        const payer = t.payerName || 'Self';
+        if (!map[payer]) map[payer] = { total: 0, count: 0, items: [] };
+        map[payer].total += t.amount;
+        map[payer].count += 1;
+        if (t.description && !map[payer].items.includes(t.description)) {
+          map[payer].items.push(t.description);
+        }
+      }
+    });
+
+    return Object.entries(map)
+      .map(([payerName, data]) => ({
+        payerName,
+        total: parseFloat(data.total.toFixed(2)),
+        count: data.count,
+        items: data.items
+      }))
+      .sort((a, b) => b.total - a.total);
+  };
+
+  const filteredStores = getFilteredStores();
+  const filteredPayers = getFilteredPayers();
 
   return (
     <div className="space-y-6 mb-8">
@@ -261,55 +340,103 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       {/* Top Spending Stores Section */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Store className="w-4 h-4 text-indigo-600" /> Top Spending Stores
-          </h3>
-          <span className="text-xs text-slate-400">
-            {selectedMonth === 'ALL' ? 'All-Time Ranking' : `Ranking for ${formatMonthLabel(selectedMonth)}`}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Store className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Top Spending Stores</h3>
+            <span className="text-xs text-slate-400">
+              ({selectedMonth === 'ALL' ? 'All-Time' : formatMonthLabel(selectedMonth)})
+            </span>
+          </div>
+
+          {/* Store Category Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-xs font-semibold text-slate-600">Category Filter:</span>
+            <select
+              value={selectedStoreCategory}
+              onChange={(e) => setSelectedStoreCategory(e.target.value)}
+              className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="All">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {summary.topVendors.length > 0 ? (
+        {filteredStores.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {summary.topVendors.map((vendor, i) => (
-              <div key={vendor.merchant} className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col justify-between">
+            {filteredStores.map((store, i) => (
+              <div key={store.storeName} className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 flex flex-col justify-between">
                 <div>
-                  <div className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">#{i + 1} Merchant</div>
-                  <div className="font-bold text-slate-800 text-xs truncate" title={vendor.merchant}>{vendor.merchant}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">{vendor.count} transaction{vendor.count === 1 ? '' : 's'}</div>
+                  <div className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider mb-0.5">#{i + 1} Store</div>
+                  <div className="font-bold text-slate-800 text-xs truncate" title={store.storeName}>{store.storeName}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">{store.count} purchase{store.count === 1 ? '' : 's'}</div>
+
+                  {/* Purchased items preview if category filtered */}
+                  {selectedStoreCategory !== 'All' && store.items.length > 0 && (
+                    <div className="mt-2 text-[10px] text-slate-600 bg-white p-1.5 rounded border border-slate-200 space-y-0.5">
+                      <div className="font-bold text-indigo-700 flex items-center gap-1">
+                        <ShoppingBag className="w-2.5 h-2.5" /> Items in {selectedStoreCategory}:
+                      </div>
+                      <div className="truncate font-medium text-slate-800">{store.items.join(', ')}</div>
+                    </div>
+                  )}
                 </div>
-                <div className="font-extrabold text-slate-900 text-sm mt-2">
-                  ${vendor.total.toFixed(2)}
+                <div className="font-extrabold text-slate-900 text-sm mt-2 pt-1 border-t border-slate-200/50">
+                  ${store.total.toFixed(2)}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-xs text-slate-400 italic py-2 text-center">
-            No merchant records for this month filter.
+          <div className="text-xs text-slate-400 italic py-4 text-center">
+            No store purchases found matching category "{selectedStoreCategory}".
           </div>
         )}
       </div>
 
       {/* Top Spending Payers Section */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-600" /> Top Spending Payers
-          </h3>
-          <span className="text-xs text-slate-400">
-            {selectedMonth === 'ALL' ? 'All-Time Payer Breakdown' : `Payers for ${formatMonthLabel(selectedMonth)}`}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Top Spending Payers</h3>
+            <span className="text-xs text-slate-400">
+              ({selectedMonth === 'ALL' ? 'All-Time' : formatMonthLabel(selectedMonth)})
+            </span>
+          </div>
+
+          {/* Payer Category Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="text-xs font-semibold text-slate-600">Category Filter:</span>
+            <select
+              value={selectedPayerCategory}
+              onChange={(e) => setSelectedPayerCategory(e.target.value)}
+              className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="All">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {summary.topPayers && summary.topPayers.length > 0 ? (
+        {filteredPayers.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {summary.topPayers.map((payer, i) => {
+            {filteredPayers.map((payer, i) => {
               const share = summary.totalSpent > 0 ? (payer.total / summary.totalSpent) * 100 : 0;
               return (
                 <div
-                  key={payer.payer}
+                  key={payer.payerName}
                   className={`border rounded-xl p-3 flex flex-col justify-between ${
                     i === 0
                       ? 'bg-indigo-50/70 border-indigo-200 shadow-2xs'
@@ -327,23 +454,33 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="font-bold text-slate-900 text-xs truncate" title={payer.payer}>
-                      {payer.payer}
+                    <div className="font-bold text-slate-900 text-xs truncate" title={payer.payerName}>
+                      {payer.payerName}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      {payer.count} expense{payer.count === 1 ? '' : 's'} ({share.toFixed(0)}% of total)
+                      {payer.count} expense{payer.count === 1 ? '' : 's'} {selectedPayerCategory === 'All' && `(${share.toFixed(0)}%)`}
                     </div>
+
+                    {/* Purchased items preview if category filtered */}
+                    {selectedPayerCategory !== 'All' && payer.items.length > 0 && (
+                      <div className="mt-2 text-[10px] text-slate-600 bg-white p-1.5 rounded border border-slate-200 space-y-0.5">
+                        <div className="font-bold text-indigo-700 flex items-center gap-1">
+                          <ShoppingBag className="w-2.5 h-2.5" /> Items in {selectedPayerCategory}:
+                        </div>
+                        <div className="truncate font-medium text-slate-800">{payer.items.join(', ')}</div>
+                      </div>
+                    )}
                   </div>
-                  <div className="font-extrabold text-slate-900 text-sm mt-2 flex items-center justify-between">
-                    <span>${payer.total.toFixed(2)}</span>
+                  <div className="font-extrabold text-slate-900 text-sm mt-2 pt-1 border-t border-slate-200/50">
+                    ${payer.total.toFixed(2)}
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="text-xs text-slate-400 italic py-2 text-center">
-            No payer records available for this month filter.
+          <div className="text-xs text-slate-400 italic py-4 text-center">
+            No payer expenses found matching category "{selectedPayerCategory}".
           </div>
         )}
       </div>

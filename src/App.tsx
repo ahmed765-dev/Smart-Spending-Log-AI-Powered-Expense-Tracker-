@@ -172,6 +172,7 @@ export default function App() {
             <AnalyticsDashboard
               summary={summary}
               categories={categories}
+              transactions={transactions}
               onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
               selectedMonth={selectedMonth}
               onMonthChange={handleMonthChange}

@@ -38,6 +38,8 @@ interface AnalyticsPageProps {
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ categories, onDataChanged }) => {
   const [data, setData] = useState<DeepAnalyticsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedScopeMonth, setSelectedScopeMonth] = useState<string>('ALL');
+  const [payerCategoryFilter, setPayerCategoryFilter] = useState<string>('All');
   const [month1, setMonth1] = useState<string>('');
   const [month2, setMonth2] = useState<string>('');
   const [monthStartDay, setMonthStartDay] = useState<number>(1);
@@ -47,12 +49,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ categories, onData
   const [isClearingAll, setIsClearingAll] = useState<boolean>(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
-  const fetchAnalytics = useCallback(async (m1?: string, m2?: string) => {
+  const fetchAnalytics = useCallback(async (m1?: string, m2?: string, scopeM?: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (m1) params.append('month1', m1);
       if (m2) params.append('month2', m2);
+      if (scopeM) params.append('selectedMonth', scopeM);
 
       const res = await fetch(`/api/analytics/deep?${params.toString()}`);
       if (res.ok) {
@@ -73,8 +76,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ categories, onData
   }, []);
 
   useEffect(() => {
-    fetchAnalytics(month1 || undefined, month2 || undefined);
-  }, [fetchAnalytics]);
+    fetchAnalytics(month1 || undefined, month2 || undefined, selectedScopeMonth);
+  }, [fetchAnalytics, selectedScopeMonth]);
+
+  const handleScopeMonthChange = (newMonth: string) => {
+    setSelectedScopeMonth(newMonth);
+  };
 
   const handleCompareMonthsChange = (newM1: string, newM2: string) => {
     setMonth1(newM1);
@@ -197,6 +204,37 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ categories, onData
               </select>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Time Horizon Scope Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Time Horizon Analytics Scope</span>
+            <span className="text-sm font-black text-slate-900">
+              {selectedScopeMonth === 'ALL' ? 'All Months Aggregate (Lifetime Analytics)' : `Showing Data for Month: ${selectedScopeMonth}`}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <span className="text-xs font-bold text-slate-700 whitespace-nowrap">Select Period Scope:</span>
+          <select
+            value={selectedScopeMonth}
+            onChange={(e) => handleScopeMonthChange(e.target.value)}
+            className="w-full sm:w-auto px-3 py-2 bg-slate-50 border border-slate-300 text-slate-900 font-bold text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-xs"
+          >
+            <option value="ALL">All Months (Lifetime)</option>
+            {availableMonths.map((m) => (
+              <option key={`scope-${m}`} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
