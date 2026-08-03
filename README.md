@@ -165,9 +165,3 @@ npm run dev
 | `/api/transactions/:id` | `DELETE` | `id` | Delete specific transaction record |
 | `/api/analytics/summary` | `GET` | `?month=YYYY-MM` | Dashboard KPI summary & category totals |
 | `/api/analytics/deep` | `GET` | `?selectedMonth=YYYY-MM&month1=YYYY-MM&month2=YYYY-MM` | Deep analytics, store/payer scopes & MoM comparison |
-
----
-
-## 📄 License
-
-This project is open-source under the [MIT License](LICENSE).
