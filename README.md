@@ -3,7 +3,6 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-Express- green.svg?style=for-the-badge&logo=nodedotjs)](https://nodejs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E44AD.svg?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
