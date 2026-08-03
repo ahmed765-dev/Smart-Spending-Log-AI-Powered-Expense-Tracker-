@@ -10,6 +10,10 @@ interface AnalyticsDashboardProps {
   onOpenBudgetModal: () => void;
   selectedMonth: string;
   onMonthChange: (month: string) => void;
+  selectedStoreCategory?: string;
+  onStoreCategoryChange?: (cat: string) => void;
+  selectedPayerCategory?: string;
+  onPayerCategoryChange?: (cat: string) => void;
 }
 
 const formatMonthLabel = (ymStr: string) => {
@@ -26,14 +30,14 @@ const formatMonthLabel = (ymStr: string) => {
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   summary,
   categories,
-  transactions = [],
   onOpenBudgetModal,
   selectedMonth,
   onMonthChange,
+  selectedStoreCategory = 'All',
+  onStoreCategoryChange,
+  selectedPayerCategory = 'All',
+  onPayerCategoryChange,
 }) => {
-  const [selectedStoreCategory, setSelectedStoreCategory] = useState<string>('All');
-  const [selectedPayerCategory, setSelectedPayerCategory] = useState<string>('All');
-
   if (!summary) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
@@ -51,78 +55,19 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       color: c.color,
     }));
 
-  // Calculate Category-filtered Stores
-  const getFilteredStores = () => {
-    if (selectedStoreCategory === 'All') {
-      return summary.topVendors.map(v => ({
-        storeName: v.merchant,
-        total: v.total,
-        count: v.count,
-        items: [] as string[]
-      }));
-    }
+  const filteredStores = (summary.topVendors || []).map(v => ({
+    storeName: v.merchant,
+    total: v.total,
+    count: v.count,
+    items: v.items || []
+  }));
 
-    const map: Record<string, { total: number; count: number; items: string[] }> = {};
-    transactions.forEach(t => {
-      const cat = t.predictedCategory || t.actualCategory;
-      if (cat === selectedStoreCategory) {
-        const store = t.storeName || t.merchant || 'General Market';
-        if (!map[store]) map[store] = { total: 0, count: 0, items: [] };
-        map[store].total += t.amount;
-        map[store].count += 1;
-        if (t.description && !map[store].items.includes(t.description)) {
-          map[store].items.push(t.description);
-        }
-      }
-    });
-
-    return Object.entries(map)
-      .map(([storeName, data]) => ({
-        storeName,
-        total: parseFloat(data.total.toFixed(2)),
-        count: data.count,
-        items: data.items
-      }))
-      .sort((a, b) => b.total - a.total);
-  };
-
-  // Calculate Category-filtered Payers
-  const getFilteredPayers = () => {
-    if (selectedPayerCategory === 'All') {
-      return (summary.topPayers || []).map(p => ({
-        payerName: p.payer,
-        total: p.total,
-        count: p.count,
-        items: [] as string[]
-      }));
-    }
-
-    const map: Record<string, { total: number; count: number; items: string[] }> = {};
-    transactions.forEach(t => {
-      const cat = t.predictedCategory || t.actualCategory;
-      if (cat === selectedPayerCategory) {
-        const payer = t.payerName || 'Self';
-        if (!map[payer]) map[payer] = { total: 0, count: 0, items: [] };
-        map[payer].total += t.amount;
-        map[payer].count += 1;
-        if (t.description && !map[payer].items.includes(t.description)) {
-          map[payer].items.push(t.description);
-        }
-      }
-    });
-
-    return Object.entries(map)
-      .map(([payerName, data]) => ({
-        payerName,
-        total: parseFloat(data.total.toFixed(2)),
-        count: data.count,
-        items: data.items
-      }))
-      .sort((a, b) => b.total - a.total);
-  };
-
-  const filteredStores = getFilteredStores();
-  const filteredPayers = getFilteredPayers();
+  const filteredPayers = (summary.topPayers || []).map(p => ({
+    payerName: p.payer,
+    total: p.total,
+    count: p.count,
+    items: p.items || []
+  }));
 
   return (
     <div className="space-y-6 mb-8">
@@ -355,7 +300,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <span className="text-xs font-semibold text-slate-600">Category Filter:</span>
             <select
               value={selectedStoreCategory}
-              onChange={(e) => setSelectedStoreCategory(e.target.value)}
+              onChange={(e) => onStoreCategoryChange && onStoreCategoryChange(e.target.value)}
               className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="All">All Categories</option>
@@ -417,7 +362,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <span className="text-xs font-semibold text-slate-600">Category Filter:</span>
             <select
               value={selectedPayerCategory}
-              onChange={(e) => setSelectedPayerCategory(e.target.value)}
+              onChange={(e) => onPayerCategoryChange && onPayerCategoryChange(e.target.value)}
               className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="All">All Categories</option>

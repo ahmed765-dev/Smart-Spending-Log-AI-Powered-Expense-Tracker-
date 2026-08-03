@@ -275,8 +275,15 @@ let transactions: TransactionRecord[] = [
   }
 ];
 
-// Persistent File Storage (data.json)
-const DATA_FILE = path.join(process.cwd(), 'data.json');
+// Persistent File Storage (.data/data.json)
+const DATA_DIR = path.join(process.cwd(), '.data');
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch {}
+}
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const ROOT_DATA_FILE = path.join(process.cwd(), 'data.json');
 
 function saveDataToDisk() {
   try {
@@ -293,8 +300,13 @@ function saveDataToDisk() {
 
 function loadDataFromDisk() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    let targetPath = DATA_FILE;
+    if (!fs.existsSync(DATA_FILE) && fs.existsSync(ROOT_DATA_FILE)) {
+      targetPath = ROOT_DATA_FILE;
+    }
+
+    if (fs.existsSync(targetPath)) {
+      const raw = fs.readFileSync(targetPath, 'utf-8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.transactions)) {
         transactions = parsed.transactions;
@@ -305,7 +317,7 @@ function loadDataFromDisk() {
       if (Array.isArray(parsed.mlModelWeights)) {
         mlModelWeights = parsed.mlModelWeights;
       }
-      console.log(`Loaded ${transactions.length} transaction(s) and ${categories.length} category/categories from local disk (${DATA_FILE}).`);
+      console.log(`Loaded ${transactions.length} transaction(s) and ${categories.length} category/categories from local disk (${targetPath}).`);
     } else {
       saveDataToDisk();
     }
@@ -621,9 +633,9 @@ app.delete('/api/transactions/:id', (req, res) => {
   res.json({ success: deleted, id });
 });
 
-// 6. Analytics Summary Endpoint (with Month Selection)
+// 6. Analytics Summary Endpoint (with Month Selection & Category Filters)
 app.get('/api/analytics/summary', (req, res) => {
-  const { selectedMonth } = req.query;
+  const { selectedMonth, storeCategory, payerCategory } = req.query;
 
   // Extract all unique available months (YYYY-MM) from transaction records
   const monthSet = new Set<string>();
@@ -668,31 +680,53 @@ app.get('/api/analytics/summary', (req, res) => {
   const monthlyBudget = categories.reduce((sum, c) => sum + c.budgetLimit, 0);
   const totalBudgetSpentPercentage = monthlyBudget > 0 ? (totalSpent / monthlyBudget) * 100 : 0;
 
-  // Merchant breakdown for filtered transactions
-  const merchantMap: Record<string, { total: number; count: number }> = {};
-  filteredTxs.forEach(t => {
-    const m = t.storeName || t.merchant || 'Unknown Store';
-    if (!merchantMap[m]) merchantMap[m] = { total: 0, count: 0 };
+  // Merchant / Store breakdown for filtered transactions (supports category filter)
+  let vendorTxs = [...filteredTxs];
+  if (storeCategory && storeCategory !== 'All') {
+    vendorTxs = filteredTxs.filter(t => (t.predictedCategory === storeCategory || t.actualCategory === storeCategory));
+  }
+
+  const merchantMap: Record<string, { total: number; count: number; items: Set<string> }> = {};
+  vendorTxs.forEach(t => {
+    const m = t.storeName || t.merchant || 'General Store';
+    if (!merchantMap[m]) merchantMap[m] = { total: 0, count: 0, items: new Set() };
     merchantMap[m].total += t.amount;
     merchantMap[m].count += 1;
+    if (t.description) merchantMap[m].items.add(t.description);
   });
 
   const topVendors = Object.entries(merchantMap)
-    .map(([merchant, data]) => ({ merchant, total: parseFloat(data.total.toFixed(2)), count: data.count }))
+    .map(([merchant, data]) => ({
+      merchant,
+      total: parseFloat(data.total.toFixed(2)),
+      count: data.count,
+      items: Array.from(data.items).slice(0, 5)
+    }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
-  // Payer breakdown for filtered transactions
-  const payerMap: Record<string, { total: number; count: number }> = {};
-  filteredTxs.forEach(t => {
+  // Payer breakdown for filtered transactions (supports category filter)
+  let payerTxs = [...filteredTxs];
+  if (payerCategory && payerCategory !== 'All') {
+    payerTxs = filteredTxs.filter(t => (t.predictedCategory === payerCategory || t.actualCategory === payerCategory));
+  }
+
+  const payerMap: Record<string, { total: number; count: number; items: Set<string> }> = {};
+  payerTxs.forEach(t => {
     const p = t.payerName || 'Unassigned';
-    if (!payerMap[p]) payerMap[p] = { total: 0, count: 0 };
+    if (!payerMap[p]) payerMap[p] = { total: 0, count: 0, items: new Set() };
     payerMap[p].total += t.amount;
     payerMap[p].count += 1;
+    if (t.description) payerMap[p].items.add(t.description);
   });
 
   const topPayers = Object.entries(payerMap)
-    .map(([payer, data]) => ({ payer, total: parseFloat(data.total.toFixed(2)), count: data.count }))
+    .map(([payer, data]) => ({
+      payer,
+      total: parseFloat(data.total.toFixed(2)),
+      count: data.count,
+      items: Array.from(data.items).slice(0, 5)
+    }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 5);
 
@@ -988,7 +1022,12 @@ app.delete('/api/transactions/month/:monthStr', (req, res) => {
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        watch: {
+          ignored: ['**/.data/**', '**/data.json', '**/data*.json']
+        }
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

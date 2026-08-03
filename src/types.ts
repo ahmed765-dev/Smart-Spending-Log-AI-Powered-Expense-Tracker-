@@ -36,8 +36,8 @@ export interface AnalyticsSummary {
   monthlyBudget: number;
   totalBudgetSpentPercentage: number;
   aiInsights: string[];
-  topVendors: { merchant: string; total: number; count: number }[];
-  topPayers: { payer: string; total: number; count: number }[];
+  topVendors: { merchant: string; total: number; count: number; items?: string[] }[];
+  topPayers: { payer: string; total: number; count: number; items?: string[] }[];
   availableMonths: string[];
   selectedMonth: string;
   // Period Comparison Data (Optional)

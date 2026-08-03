@@ -31,6 +31,10 @@ export default function App() {
   const [availablePayers, setAvailablePayers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Analytics Dashboard Category Filters
+  const [summaryStoreCategory, setSummaryStoreCategory] = useState<string>('All');
+  const [summaryPayerCategory, setSummaryPayerCategory] = useState<string>('All');
+
   // Modals
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,6 +57,8 @@ export default function App() {
     try {
       const params = new URLSearchParams({
         selectedMonth,
+        storeCategory: summaryStoreCategory,
+        payerCategory: summaryPayerCategory,
       });
       const res = await fetch(`/api/analytics/summary?${params.toString()}`);
       if (res.ok) {
@@ -62,7 +68,7 @@ export default function App() {
     } catch (err) {
       console.error('Failed to fetch analytics summary:', err);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, summaryStoreCategory, summaryPayerCategory]);
 
   // Fetch Transactions with Multi-Filter and Month parameters
   const fetchTransactions = useCallback(async () => {
@@ -172,10 +178,13 @@ export default function App() {
             <AnalyticsDashboard
               summary={summary}
               categories={categories}
-              transactions={transactions}
               onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
               selectedMonth={selectedMonth}
               onMonthChange={handleMonthChange}
+              selectedStoreCategory={summaryStoreCategory}
+              onStoreCategoryChange={(cat) => setSummaryStoreCategory(cat)}
+              selectedPayerCategory={summaryPayerCategory}
+              onPayerCategoryChange={(cat) => setSummaryPayerCategory(cat)}
             />
 
             {/* Transaction Data Grid */}

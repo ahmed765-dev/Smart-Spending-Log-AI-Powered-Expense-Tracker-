@@ -487,6 +487,7 @@ export const TransactionGrid: React.FC<TransactionGridProps> = ({
                       <td className="py-3 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-1.5">
                           <button
+                            type="button"
                             onClick={() => handleSaveRow(tx.id)}
                             disabled={isUpdating}
                             className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs font-bold text-xs flex items-center space-x-1 cursor-pointer transition-all disabled:opacity-50"
@@ -496,6 +497,7 @@ export const TransactionGrid: React.FC<TransactionGridProps> = ({
                             <span>Save</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => setEditingTxId(null)}
                             className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold text-xs flex items-center cursor-pointer transition-all"
                             title="Cancel edit"
